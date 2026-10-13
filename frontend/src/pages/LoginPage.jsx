@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { authenticate, getCredentialsForRole, ROLE_CONFIG } from "../lib/auth.js";
+import BrandLogo from "../components/BrandLogo.jsx";
 
 const DEFAULT_ROLE = "depot";
 const DEFAULT_CREDENTIALS = getCredentialsForRole(DEFAULT_ROLE);
@@ -39,7 +40,8 @@ export default function LoginPage({ session, onLogin }) {
   return (
     <div className="flex min-h-full items-start justify-center px-4 py-10 sm:items-center">
       <section className="panel w-full max-w-md p-6 shadow-sm sm:p-8">
-        <p className="text-xs font-semibold uppercase tracking-wider text-mute">Staff access</p>
+        <BrandLogo variant="ink" height={40} className="mb-5" />
+<p className="text-xs font-semibold uppercase tracking-wider text-mute">Staff access</p>
         <h1 className="mt-1 text-3xl font-extrabold">Login to Karwan</h1>
         <p className="mt-2 text-sm leading-6 text-mute">Select your role and enter its demo account credentials.</p>
 

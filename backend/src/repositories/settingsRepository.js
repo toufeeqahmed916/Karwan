@@ -5,14 +5,23 @@ import { unwrapSupabaseResult } from "./databaseRepository.js";
 const WEIGHTS_KEY = "weights";
 const TIME_OFFSET_KEY = "time_offset_hours";
 
+export const DEFAULT_WEIGHTS = Object.freeze({
+  urgency: 0.35,
+  population: 0.25,
+  vulnerability: 0.15,
+  waiting: 0.15,
+  accessibility: 0.1,
+});
+
 export async function findWeights() {
   const result = await supabaseAdmin
     .from(TABLES.settings)
     .select("value")
     .eq("key", WEIGHTS_KEY)
-    .single();
+    .maybeSingle();
 
-  return unwrapSupabaseResult(result, "read priority weights").value;
+  const row = unwrapSupabaseResult(result, "read priority weights");
+  return row?.value ?? { ...DEFAULT_WEIGHTS };
 }
 
 export async function saveWeights(weights) {
@@ -30,9 +39,9 @@ export async function findTimeOffsetHours() {
     .from(TABLES.settings)
     .select("value")
     .eq("key", TIME_OFFSET_KEY)
-    .single();
+    .maybeSingle();
 
-  const value = unwrapSupabaseResult(result, "read time offset").value;
+  const value = unwrapSupabaseResult(result, "read time offset")?.value ?? 0;
   const hours = Number(value);
   return Number.isFinite(hours) ? hours : 0;
 }

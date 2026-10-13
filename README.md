@@ -9,7 +9,7 @@
 &nbsp;
 <a href="https://YOUR-VIDEO-LINK"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6%20Demo%20video-16181D?style=for-the-badge&labelColor=16181D&color=16181D"></a>
 
-[PRD](docs/PRD.md) | [TRD](docs/TRD.md)
+[PRD](docs/PRD.md)  |  [TRD](docs/TRD.md)  |  [User flow](docs/USER_FLOW.md  |  [Design](docs/DESIGN.md)
 
 <br><br>
 

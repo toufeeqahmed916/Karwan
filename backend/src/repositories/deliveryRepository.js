@@ -13,6 +13,7 @@ const DELIVERY_SELECT = `
   eta_min,
   status,
   progress_pct,
+  started_at,
   created_at,
   requests (area, lat, lng),
   depots (name, lat, lng),

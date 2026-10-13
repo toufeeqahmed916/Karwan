@@ -33,7 +33,9 @@ export function subscribeToDeliveryUpdates({ vehicleId, onData, onConnectionChan
 
   refresh("polling");
   const fallbackTimer = window.setInterval(() => {
-    if (!realtimeReady) refresh("polling");
+    // Keep polling even while Realtime is connected. Delivery progress is
+    // calculated by the server from elapsed time, so polling also advances it.
+    refresh(realtimeReady ? "realtime" : "polling");
   }, 2000);
 
   const channel = realtimeClient

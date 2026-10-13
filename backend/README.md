@@ -22,8 +22,17 @@ Phase 2 contains transparent priority scoring and the agreed weight endpoints:
 - Weighted score parts that add up to the displayed total
 - Immediate re-scoring and sorting of requests after a weight update
 
-Feature endpoints for requests, inventory, allocation, simulation, routes,
-deliveries, dashboard, and reset remain deferred to their phases.
+Phase 3 contains assistance request registration and tracking:
+
+- `GET /api/requests`
+- `POST /api/requests`
+- `GET /api/requests/:id`
+- `PATCH /api/requests/:id`
+- Filters for status, item, and urgency
+- Score, fulfilment, items, and delivery tracking in the agreed response shape
+
+Feature endpoints for inventory, allocation, simulation, routes, deliveries,
+dashboard, and reset remain deferred to their phases.
 
 ## Setup
 
@@ -39,6 +48,7 @@ The backend defaults to `http://localhost:4000`.
 ```text
 npm test
 npm run check:db
+npm run check:requests
 ```
 
 HTTP checks:

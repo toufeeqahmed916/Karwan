@@ -6,7 +6,22 @@ import weightsMock from "../mocks/weights.json";
 import { rescoreAll, scoreRequest } from "./mockScore.js";
 
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
-const BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000") + "/api";
+const API_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, "");
+const BASE = `${API_URL}/api`;
+
+if (!USE_MOCKS) {
+  if (!API_URL) {
+    console.error("[Karwan API] Backend not configured. Add VITE_API_URL to the frontend environment.");
+  } else {
+    fetch(`${API_URL}/health/ready`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`Health check returned ${response.status}`);
+        return response.json();
+      })
+      .then(() => console.log(`[Karwan API] Backend connected: ${API_URL}`))
+      .catch((error) => console.error(`[Karwan API] Backend connection failed: ${API_URL}`, error));
+  }
+}
 
 // Every MVP backend phase is complete. Set VITE_USE_MOCKS=true and remove a
 // feature here only when intentionally demonstrating its local mock instead.
@@ -680,6 +695,7 @@ function ensureMockDeliveries() {
         allocationIds: rows.map((entry) => entry.id),
         vehicleId: row.vehicleId,
         requestId: row.requestId,
+        createdAt: new Date().toISOString(),
         status: row.status === "recommended" ? "approved" : row.status,
         progressPct: 0,
         lat: depot.lat,
@@ -707,6 +723,7 @@ function ensureMockDeliveries() {
     allocationIds: ["alc_demo_01"],
     vehicleId: vehicle.id,
     requestId: request.id,
+    createdAt: new Date().toISOString(),
     status: "approved",
     progressPct: 0,
     lat: depot.lat,

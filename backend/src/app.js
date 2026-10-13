@@ -50,3 +50,9 @@ export function createApp() {
 
   return app;
 }
+
+// Vercel's Node runtime imports this module and requires a default function or
+// server export. Express applications are request-handler functions.
+const app = createApp();
+
+export default app;

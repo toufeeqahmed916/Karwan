@@ -44,7 +44,7 @@ export const env = Object.freeze({
   port: parsePort(process.env.PORT),
   clientOrigins: (process.env.CLIENT_ORIGIN || "http://localhost:5173")
     .split(",")
-    .map((origin) => origin.trim())
+    .map((origin) => origin.trim().replace(/\/+$/, ""))
     .filter(Boolean),
   supabaseUrl: parseUrl("SUPABASE_URL", process.env.SUPABASE_URL),
   supabasePublishableKey: process.env.SUPABASE_PUBLISHABLE_KEY.trim(),

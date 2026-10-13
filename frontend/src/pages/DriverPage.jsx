@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import MapView from "../components/MapView.jsx";
 import RouteLayer from "../components/RouteLayer.jsx";
 import TruckLayer from "../components/TruckLayer.jsx";
@@ -9,7 +9,8 @@ import { ITEM_LABEL } from "../lib/constants.js";
 export default function DriverPage() {
   const [overview, setOverview] = useState(null);
   const [deliveries, setDeliveries] = useState([]);
-  const [vehicleId, setVehicleId] = useState("");
+  const [deliveryId, setDeliveryId] = useState("");
+  const knownDeliveryIds = useRef(new Set());
   const [connection, setConnection] = useState({ paused: false, mode: "polling" });
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
@@ -19,16 +20,29 @@ export default function DriverPage() {
     getCoordinatorOverview().then(setOverview).catch((requestError) => setError(requestError.message));
     return subscribeToDeliveryUpdates({
       onData(data) {
+        const newDeliveries = data.filter((delivery) => !knownDeliveryIds.current.has(delivery.allocationId));
+        knownDeliveryIds.current = new Set(data.map((delivery) => delivery.allocationId));
         setDeliveries(data);
-        setVehicleId((current) => current || data[0]?.vehicleId || "");
+        setDeliveryId((current) => {
+          if (newDeliveries.length) return newDeliveries.at(-1).allocationId;
+          return data.some((delivery) => delivery.allocationId === current)
+            ? current
+            : data[0]?.allocationId || "";
+        });
         setLoading(false);
       },
       onConnectionChange: setConnection,
     });
   }, []);
 
-  const vehicles = useMemo(() => [...new Map(deliveries.map((delivery) => [delivery.vehicleId, delivery])).values()], [deliveries]);
-  const delivery = deliveries.find((entry) => entry.vehicleId === vehicleId) || deliveries[0];
+  const orderedDeliveries = useMemo(() => {
+    const statusPriority = { in_transit: 0, approved: 1, delivered: 2 };
+    return [...deliveries].sort((left, right) =>
+      (statusPriority[left.status] ?? 3) - (statusPriority[right.status] ?? 3) ||
+      new Date(right.createdAt ?? 0) - new Date(left.createdAt ?? 0)
+    );
+  }, [deliveries]);
+  const delivery = deliveries.find((entry) => entry.allocationId === deliveryId) || orderedDeliveries[0];
   const request = overview?.requests.find((entry) => entry.id === delivery?.requestId);
   const depot = overview?.depots.find((entry) => entry.id === delivery?.depotId);
   const route = delivery ? {
@@ -82,10 +96,10 @@ export default function DriverPage() {
             <h1 className="mt-1 text-3xl font-extrabold">Delivery run</h1>
             <p className="mt-1 text-sm text-mute">Follow the route, update the trip and confirm arrival.</p>
           </div>
-          {!!vehicles.length && (
-            <label className="text-sm">Assigned vehicle
-              <select className="field mt-1 min-w-48" value={vehicleId} onChange={(event) => setVehicleId(event.target.value)}>
-                {vehicles.map((entry) => <option key={entry.vehicleId} value={entry.vehicleId}>{entry.vehicleId} · {entry.area}</option>)}
+          {!!orderedDeliveries.length && (
+            <label className="text-sm">Assigned delivery
+              <select className="field mt-1 min-w-56" value={delivery?.allocationId ?? ""} onChange={(event) => setDeliveryId(event.target.value)}>
+                {orderedDeliveries.map((entry) => <option key={entry.allocationId} value={entry.allocationId}>{entry.area} · {entry.vehicleId} · {entry.status.replace("_", " ")}</option>)}
               </select>
             </label>
           )}

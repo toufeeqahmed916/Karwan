@@ -65,6 +65,7 @@ async function mapDelivery(group) {
     allocationIds: group.rows.map((row) => row.id),
     vehicleId: group.vehicleId,
     requestId: group.requestId,
+    createdAt: first.created_at,
     status,
     progressPct,
     lat:

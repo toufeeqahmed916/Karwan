@@ -9,6 +9,8 @@
 &nbsp;
 <a href="https://YOUR-VIDEO-LINK"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6%20Demo%20video-16181D?style=for-the-badge&labelColor=16181D&color=16181D"></a>
 
+[PRD](docs/PRD.md) | [TRD](docs/TRD.md)
+
 <br><br>
 
 ![Problem](https://img.shields.io/badge/problem-CL--03-C4F135?style=flat-square&labelColor=16181D)

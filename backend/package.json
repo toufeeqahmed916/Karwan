@@ -11,8 +11,14 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
+    "check:allocation": "node scripts/check-allocation-api.js",
     "check:db": "node scripts/check-database.js",
+    "check:e2e": "node scripts/check-e2e.js",
+    "check:dashboard": "node scripts/check-dashboard-api.js",
+    "check:inventory": "node scripts/check-inventory-api.js",
     "check:requests": "node scripts/check-requests-api.js",
+    "check:routes-deliveries": "node scripts/check-routes-deliveries-api.js",
+    "warm:routes": "node scripts/warm-route-cache.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

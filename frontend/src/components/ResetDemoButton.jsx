@@ -26,7 +26,7 @@ export default function ResetDemoButton() {
           <section role="dialog" aria-modal="true" aria-labelledby="reset-title" className="panel w-full max-w-md p-6 shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
             <p className="text-xs font-semibold uppercase tracking-wider text-mute">Demo reset</p>
             <h2 id="reset-title" className="mt-1 text-2xl font-bold">Restore the starting data?</h2>
-            <p className="mt-3 text-sm leading-6 text-mute">This clears frontend stock edits, scenarios, allocations, road blocks and delivery progress, then restores the seeded mock data.</p>
+            <p className="mt-3 text-sm leading-6 text-mute">This clears stock edits, scenarios, allocations, road blocks and delivery progress, then restores the seeded demo data.</p>
             {error && <p role="alert" className="mt-3 text-sm text-crit">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <button className="btn-ghost" onClick={() => setOpen(false)} disabled={resetting}>Cancel</button>

@@ -31,8 +31,72 @@ Phase 3 contains assistance request registration and tracking:
 - Filters for status, item, and urgency
 - Score, fulfilment, items, and delivery tracking in the agreed response shape
 
-Feature endpoints for inventory, allocation, simulation, routes, deliveries,
-dashboard, and reset remain deferred to their phases.
+Phase 4 contains depot and inventory management:
+
+- `GET /api/depots`
+- `PATCH /api/depots/:id/inventory`
+- `PATCH /api/depots/:id`
+- `GET /api/stock-log?depotId=...`
+- Existing vehicles included in each depot response
+- Low-stock state from `v_inventory`
+- Stock adjustments protected from negative quantities and written to `stock_log`
+
+Phase 5 contains the operational dashboard and demo time control:
+
+- `GET /api/dashboard`
+- `POST /api/simulate/advance-time`
+- Active-request and affected-population KPIs
+- Delivery progress counts, critical shortages, inventory totals, and low-stock alerts
+- Persistent waiting-time offset with immediate request re-scoring
+
+Phase 6 contains allocation recommendations and approval:
+
+- `POST /api/allocation/generate`
+- `POST /api/allocation/approve`
+- `GET /api/allocation`
+- Weighted fair sharing, nearest-depot selection, capacity limits, vehicles, and blocked-zone penalties
+- First-come-first-served baseline comparison
+- Approval writes allocations, deducts stock, writes dispatch logs, and updates request fulfilment/status
+
+Phase 7 contains safe what-if scenarios:
+
+- `POST /api/simulate/recalculate`
+- `POST /api/simulate/apply`
+- `POST /api/simulate/undo`
+- `GET /api/simulate/blocks`
+- `DELETE /api/simulate/blocks/:id`
+- Stock, population, new-request, capacity, and blocked-zone scenario actions
+- Before/after fulfilment comparison with gained, lost, and unchanged requests
+
+Phase 8 contains real route lookup and caching:
+
+- `GET /api/routes?depotId=...&requestId=...`
+- Cache-first reads from `route_cache`
+- OSRM road routes with GeoJSON coordinate conversion
+- Five-second timeout with Haversine estimated-route fallback
+- `npm run warm:routes` to pre-fetch all depot/request pairs
+
+Phase 9 contains driver deliveries and live truck progress:
+
+- `GET /api/deliveries` with optional `vehicleId` filter
+- `POST /api/deliveries/start`
+- `POST /api/deliveries/:allocationId/complete`
+- Allocation rows grouped into driver loads with items, route, ETA, and truck position
+- One-second simulator updates for allocation progress and vehicle coordinates
+- Automatic arrival completion, request status updates, and vehicle release
+- Supabase Realtime-compatible writes with polling support from the frontend
+
+Phase 10 completes the demo and frontend integration:
+
+- `POST /api/seed/reset`
+- Reset stops active simulators, restores SQL seed data, and clears pending in-memory plans
+- Dynamic vehicle create, availability update, and removal endpoints
+- `POST /api/depots/:id/vehicles`
+- `PATCH /api/depots/:id/vehicles/:vehicleId`
+- `DELETE /api/depots/:id/vehicles/:vehicleId`
+- Full reset-driven end-to-end verification script
+
+All planned MVP backend phases are complete.
 
 ## Setup
 
@@ -47,8 +111,13 @@ The backend defaults to `http://localhost:4000`.
 
 ```text
 npm test
+npm run check:allocation
 npm run check:db
+npm run check:e2e
+npm run check:dashboard
+npm run check:inventory
 npm run check:requests
+npm run check:routes-deliveries
 ```
 
 HTTP checks:

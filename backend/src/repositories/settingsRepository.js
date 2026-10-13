@@ -36,3 +36,14 @@ export async function findTimeOffsetHours() {
   const hours = Number(value);
   return Number.isFinite(hours) ? hours : 0;
 }
+
+export async function saveTimeOffsetHours(hours) {
+  const result = await supabaseAdmin
+    .from(TABLES.settings)
+    .upsert({ key: TIME_OFFSET_KEY, value: hours }, { onConflict: "key" })
+    .select("value")
+    .single();
+
+  const value = unwrapSupabaseResult(result, "save time offset").value;
+  return Number(value);
+}

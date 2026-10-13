@@ -8,9 +8,12 @@ import { rescoreAll, scoreRequest } from "./mockScore.js";
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS === "true";
 const BASE = (import.meta.env.VITE_API_URL || "http://localhost:4000") + "/api";
 
-// Backend phases 2 and 3 are ready. Other feature groups stay mocked until
-// their backend phases are implemented and verified.
-const MOCK_OFF = new Set(["requests", "weights"]);
+// Every MVP backend phase is complete. Set VITE_USE_MOCKS=true and remove a
+// feature here only when intentionally demonstrating its local mock instead.
+const MOCK_OFF = new Set([
+  "requests", "weights", "inventory", "dashboard", "allocation",
+  "simulator", "routes", "deliveries", "reset",
+]);
 const mocked = (feature) => USE_MOCKS && !MOCK_OFF.has(feature);
 
 async function http(path, opts = {}) {
@@ -214,9 +217,10 @@ export async function getStockLog(depotId) {
   return clone(db.stockLog.filter((entry) => entry.depotId === depotId));
 }
 
-// Vehicle mutation endpoints are not in the agreed contract yet. These remain
-// frontend-only mocks until the team defines those routes.
 export async function addDepotVehicle(depotId, body) {
+  if (!mocked("inventory")) {
+    return http(`/depots/${depotId}/vehicles`, { method: "POST", body });
+  }
   await wait();
   const depot = db.depots.find((entry) => entry.id === depotId);
   if (!depot) throw Object.assign(new Error("Depot not found"), { code: "NOT_FOUND" });
@@ -236,6 +240,9 @@ export async function addDepotVehicle(depotId, body) {
 }
 
 export async function updateDepotVehicle(depotId, vehicleId, body) {
+  if (!mocked("inventory")) {
+    return http(`/depots/${depotId}/vehicles/${vehicleId}`, { method: "PATCH", body });
+  }
   await wait(100);
   const depot = db.depots.find((entry) => entry.id === depotId);
   const vehicle = depot?.vehicles.find((entry) => entry.id === vehicleId);
@@ -248,6 +255,9 @@ export async function updateDepotVehicle(depotId, vehicleId, body) {
 }
 
 export async function removeDepotVehicle(depotId, vehicleId) {
+  if (!mocked("inventory")) {
+    return http(`/depots/${depotId}/vehicles/${vehicleId}`, { method: "DELETE" });
+  }
   await wait(100);
   const depot = db.depots.find((entry) => entry.id === depotId);
   if (!depot) throw Object.assign(new Error("Depot not found"), { code: "NOT_FOUND" });

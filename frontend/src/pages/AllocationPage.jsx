@@ -104,7 +104,7 @@ export default function AllocationPage() {
           <section className="panel flex min-h-[360px] flex-col items-center justify-center p-8 text-center">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-lime text-2xl font-extrabold">↗</span>
             <h2 className="mt-4 text-2xl font-bold">Ready to build a relief plan</h2>
-            <p className="mt-2 max-w-lg text-sm text-mute">The mock optimizer will consider priority, stock, depot capacity, vehicles and distance without changing inventory.</p>
+            <p className="mt-2 max-w-lg text-sm text-mute">The optimizer considers priority, stock, depot capacity, vehicles and distance without changing inventory until approval.</p>
             <button className="btn-primary mt-5" onClick={generate} disabled={working}>{working ? "Generating..." : "Generate allocation"}</button>
           </section>
         ) : (
@@ -145,7 +145,7 @@ export default function AllocationPage() {
                 <section className="panel overflow-hidden">
                   <div className="border-b border-line px-4 py-3">
                     <h2 className="font-bold">Route preview</h2>
-                    <p className="text-xs text-mute">Dashed lines indicate the mock estimated-route fallback.</p>
+                    <p className="text-xs text-mute">Dashed lines indicate the estimated-route fallback.</p>
                   </div>
                   <div className="h-[340px]">
                     <MapView requests={request ? [request] : []} depots={depot ? [depot] : []} selectedId={request?.id}>

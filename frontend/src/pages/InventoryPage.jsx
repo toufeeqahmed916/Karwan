@@ -98,7 +98,7 @@ export default function InventoryPage() {
       <div className="mx-auto max-w-7xl">
         <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-mute">Phase 2 · Mock inventory</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-mute">Phase 2 · Live inventory</p>
             <h1 className="mt-1 text-3xl font-extrabold">Depot inventory</h1>
             <p className="mt-1 text-sm text-mute">Update stock, capacity and review available delivery vehicles.</p>
           </div>

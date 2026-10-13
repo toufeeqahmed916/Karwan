@@ -88,7 +88,7 @@ export default function SimulatorPage() {
       await load();
       setResult(null);
       setPin(null);
-      setNotice("Scenario applied to the frontend demo state.");
+      setNotice("Scenario applied to the live demo data.");
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -121,7 +121,7 @@ export default function SimulatorPage() {
         <div className="mb-5">
           <p className="text-xs font-semibold uppercase tracking-wider text-mute">Phase 5 · Safe what-if workspace</p>
           <h1 className="mt-1 text-3xl font-extrabold">Scenario simulator</h1>
-          <p className="mt-1 text-sm text-mute">Preview a single operational change before applying it to the mock demo.</p>
+          <p className="mt-1 text-sm text-mute">Preview a single operational change before applying it to the live demo.</p>
         </div>
 
         {error && <p role="alert" className="mb-4 rounded-ui border border-crit/20 bg-crit/10 px-4 py-3 text-sm text-crit">{error}</p>}

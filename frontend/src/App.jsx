@@ -1,4 +1,4 @@
-import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import { NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import RequestsPage from "./pages/RequestsPage.jsx";
 import RequesterPage from "./pages/RequesterPage.jsx";
@@ -8,51 +8,71 @@ import AllocationPage from "./pages/AllocationPage.jsx";
 import SimulatorPage from "./pages/SimulatorPage.jsx";
 import DriverPage from "./pages/DriverPage.jsx";
 import RequesterTrackerPage from "./pages/RequesterTrackerPage.jsx";
+import LoginPage from "./pages/LoginPage.jsx";
 import ResetDemoButton from "./components/ResetDemoButton.jsx";
+import { clearSession, getSession, ROLE_CONFIG, saveSession } from "./lib/auth.js";
 
-// No real login: the role switch decides which screens show (PRD section 3).
-const ROLES = {
-  requester: { label: "Requester", home: "/requester", links: [["/requester", "New request"], ["/tracker", "Track delivery"]] },
-  depot: { label: "Depot manager", home: "/inventory", links: [["/inventory", "Inventory"]] },
-  coordinator: { label: "Coordinator", home: "/requests", links: [["/dashboard", "Dashboard"], ["/requests", "Requests"], ["/allocation", "Allocation"], ["/simulator", "Simulator"]] },
-  driver: { label: "Driver", home: "/driver", links: [["/driver", "Delivery"]] },
+const PUBLIC_NAV = {
+  label: "Requester",
+  links: [["/requester", "New request"], ["/tracker", "Track delivery"]],
 };
 
-export default function App() {
-  const [role, setRole] = useState("coordinator");
-  const nav = useNavigate();
-  const r = ROLES[role];
+function ProtectedRoute({ session, role, children }) {
+  const location = useLocation();
 
-  function pickRole(k) { setRole(k); nav(ROLES[k].home); }
+  if (!session) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (session.role !== role) return <Navigate to={ROLE_CONFIG[session.role].home} replace />;
+  return children;
+}
+
+export default function App() {
+  const [session, setSession] = useState(() => getSession());
+  const navigate = useNavigate();
+  const navigation = session ? ROLE_CONFIG[session.role] : PUBLIC_NAV;
+
+  function handleLogin(account) {
+    saveSession(account);
+    setSession(account);
+  }
+
+  function handleLogout() {
+    clearSession();
+    setSession(null);
+    navigate("/requester", { replace: true });
+  }
 
   return (
     <div className="flex h-full flex-col">
       <header className="relative z-[1100] flex flex-wrap items-center gap-2 border-b border-line bg-card px-3 py-2 sm:gap-4 sm:px-4">
-        <span className="font-display text-xl font-extrabold">Karwan</span>
-        <label className="flex items-center gap-2 text-sm">
-          Role
-          <select className="field w-auto" value={role} onChange={(e) => pickRole(e.target.value)}>
-            {Object.entries(ROLES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-        </label>
+        <NavLink to="/requester" className="font-display text-xl font-extrabold">Karwan</NavLink>
+        <span className="rounded-full bg-paper px-3 py-1 text-xs font-semibold text-mute">{navigation.label}</span>
         <nav className="order-3 flex w-full gap-1 overflow-x-auto sm:order-none sm:w-auto">
-          {r.links.map(([to, label]) => (
+          {navigation.links.map(([to, label]) => (
             <NavLink key={to} to={to} className={({ isActive }) => `rounded-ui px-3 py-2 text-sm font-medium ${isActive ? "bg-ink text-white" : "hover:bg-paper"}`}>{label}</NavLink>
           ))}
         </nav>
-        <div className="ml-auto"><ResetDemoButton /></div>
+        <div className="ml-auto flex items-center gap-2">
+          {session ? (
+            <button type="button" className="btn-ghost shrink-0" onClick={handleLogout}>Logout</button>
+          ) : (
+            <NavLink to="/login" className="btn-ghost shrink-0">Login</NavLink>
+          )}
+          <ResetDemoButton />
+        </div>
       </header>
       <main className="min-h-0 flex-1">
         <Routes>
-          <Route path="/" element={<Navigate to="/requests" replace />} />
+          <Route path="/" element={<Navigate to="/requester" replace />} />
+          <Route path="/login" element={<LoginPage session={session} onLogin={handleLogin} />} />
           <Route path="/requester" element={<RequesterPage />} />
           <Route path="/tracker" element={<RequesterTrackerPage />} />
-          <Route path="/requests" element={<RequestsPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/allocation" element={<AllocationPage />} />
-          <Route path="/simulator" element={<SimulatorPage />} />
-          <Route path="/driver" element={<DriverPage />} />
+          <Route path="/inventory" element={<ProtectedRoute session={session} role="depot"><InventoryPage /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute session={session} role="coordinator"><DashboardPage /></ProtectedRoute>} />
+          <Route path="/requests" element={<ProtectedRoute session={session} role="coordinator"><RequestsPage /></ProtectedRoute>} />
+          <Route path="/allocation" element={<ProtectedRoute session={session} role="coordinator"><AllocationPage /></ProtectedRoute>} />
+          <Route path="/simulator" element={<ProtectedRoute session={session} role="coordinator"><SimulatorPage /></ProtectedRoute>} />
+          <Route path="/driver" element={<ProtectedRoute session={session} role="driver"><DriverPage /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/requester" replace />} />
         </Routes>
       </main>
     </div>

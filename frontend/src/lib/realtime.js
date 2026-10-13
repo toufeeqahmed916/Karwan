@@ -1,26 +1,59 @@
+import { createClient } from "@supabase/supabase-js";
 import { getDeliveries } from "./api.js";
 
-// Phase 7 stays mock-only. This 2-second poller is also the required fallback
-// boundary for Realtime when the delivery backend is connected later.
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim();
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim();
+const realtimeClient =
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : null;
+
 export function subscribeToDeliveryUpdates({ vehicleId, onData, onConnectionChange }) {
   let stopped = false;
+  let realtimeReady = false;
+  let refreshing = false;
 
-  async function poll() {
+  async function refresh(mode = realtimeReady ? "realtime" : "polling") {
+    if (refreshing) return;
+    refreshing = true;
     try {
       const deliveries = await getDeliveries(vehicleId);
-      if (stopped) return;
-      onData(deliveries);
-      onConnectionChange?.({ paused: false, mode: "polling" });
+      if (!stopped) {
+        onData(deliveries);
+        onConnectionChange?.({ paused: false, mode });
+      }
     } catch (error) {
-      if (stopped) return;
-      onConnectionChange?.({ paused: true, mode: "polling", error });
+      if (!stopped) onConnectionChange?.({ paused: true, mode: "polling", error });
+    } finally {
+      refreshing = false;
     }
   }
 
-  poll();
-  const timer = window.setInterval(poll, 2000);
+  refresh("polling");
+  const fallbackTimer = window.setInterval(() => {
+    if (!realtimeReady) refresh("polling");
+  }, 2000);
+
+  const channel = realtimeClient
+    ?.channel(`delivery-updates-${Math.random().toString(36).slice(2)}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "vehicles" }, () => refresh("realtime"))
+    .on("postgres_changes", { event: "*", schema: "public", table: "allocations" }, () => refresh("realtime"))
+    .subscribe((status) => {
+      if (stopped) return;
+      if (status === "SUBSCRIBED") {
+        realtimeReady = true;
+        onConnectionChange?.({ paused: false, mode: "realtime" });
+      } else if (["CHANNEL_ERROR", "TIMED_OUT", "CLOSED"].includes(status)) {
+        realtimeReady = false;
+        onConnectionChange?.({ paused: true, mode: "polling" });
+      }
+    });
+
   return () => {
     stopped = true;
-    window.clearInterval(timer);
+    window.clearInterval(fallbackTimer);
+    if (channel && realtimeClient) realtimeClient.removeChannel(channel);
   };
 }

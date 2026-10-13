@@ -4,14 +4,12 @@ cp .env.example .env
 npm install
 npm run dev
 ```
-`VITE_USE_MOCKS=true` keeps unfinished features on mock data. Regenerate mocks from the seed values with `npm run mocks`.
+`VITE_USE_MOCKS=false` connects every completed feature to the backend. Mock data remains available for isolated frontend demonstrations; regenerate it with `npm run mocks`.
 
-Requests and priority weights now use the real backend through `MOCK_OFF` in
-`src/lib/api.js`. Inventory, vehicle management, dashboard, allocation, reset,
-simulation, routes, and deliveries remain mocked until their backend phases are
-completed and pass the integration checklist.
+Requests, weights, inventory, vehicles, dashboard, allocation, simulation,
+routes, deliveries, and reset now use the real backend through `src/lib/api.js`.
 
-Mock frontend screens:
+Application screens:
 
 - `/inventory` — stock, capacity, dynamic vehicles, alerts and stock log
 - `/dashboard` — KPIs, status pipeline, map details and time advance
@@ -22,10 +20,10 @@ Mock frontend screens:
 
 The Dashboard includes five client-computed heat layers: Need, Urgency, Supply
 gap, Delivery delay and Accessibility. Dashboard and Allocation use the shared
-mock route layer; dashed lines identify estimated fallback routes.
+route layer; dashed lines identify estimated fallback routes.
 
-Delivery screens use a two-second frontend polling loop while mock mode is on.
-The same module is the fallback boundary for Realtime after backend integration.
+Delivery screens subscribe to Supabase Realtime. If the subscription is not
+available, they automatically poll the backend every two seconds.
 
 Run both applications during development:
 

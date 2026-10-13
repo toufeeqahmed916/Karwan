@@ -1,0 +1,220 @@
+import { buildAllocationPlan } from "../core/allocation.js";
+import { AppError } from "../errors/AppError.js";
+import {
+  findActiveRoadBlocks,
+  findSavedAllocations,
+  insertApprovedAllocations,
+  insertDispatchLogs,
+  updateInventoryQuantity,
+  updateRequestItemAllocation,
+  updateRequestStatus,
+} from "../repositories/allocationRepository.js";
+import { findRequestsForScoring } from "../repositories/scoringRepository.js";
+import {
+  findTimeOffsetHours,
+  findWeights,
+} from "../repositories/settingsRepository.js";
+import { listDepots } from "./inventoryService.js";
+import { listRequests } from "./requestService.js";
+import { scoreAndSortRequests } from "./scoringService.js";
+import {
+  validateApproveAllocation,
+  validateGenerateAllocation,
+} from "../validators/allocationValidator.js";
+
+let pendingPlan = null;
+
+function mapBlock(row) {
+  return {
+    id: row.id,
+    lat: row.lat,
+    lng: row.lng,
+    radiusKm: row.radius_km,
+    active: row.active,
+  };
+}
+
+export async function getPlanningContext() {
+  const [requestRows, weights, timeOffsetHours, depots, blockRows] =
+    await Promise.all([
+      findRequestsForScoring(),
+      findWeights(),
+      findTimeOffsetHours(),
+      listDepots(),
+      findActiveRoadBlocks(),
+    ]);
+  const blocks = blockRows.map(mapBlock);
+  const adjustedRows = requestRows.map((row) => ({
+    ...row,
+    accessibility: blocks.some((block) => {
+      const latKm = (row.lat - block.lat) * 111;
+      const lngKm =
+        (row.lng - block.lng) * 111 * Math.cos((block.lat * Math.PI) / 180);
+      return Math.hypot(latKm, lngKm) <= block.radiusKm;
+    })
+      ? "hard"
+      : row.accessibility,
+  }));
+
+  return {
+    requests: scoreAndSortRequests(adjustedRows, weights, { timeOffsetHours }),
+    depots,
+    blocks,
+    weights,
+  };
+}
+
+export function setPendingAllocationPlan(plan) {
+  pendingPlan = structuredClone(plan);
+}
+
+export function clearPendingAllocationPlan() {
+  pendingPlan = null;
+}
+
+export async function generateAllocation(input = {}) {
+  validateGenerateAllocation(input);
+  const plan = buildAllocationPlan(await getPlanningContext());
+  setPendingAllocationPlan(plan);
+  return plan;
+}
+
+function insufficientStock() {
+  return new AppError({
+    code: "INSUFFICIENT_STOCK",
+    message: "Stock changed after this recommendation. Regenerate the allocation.",
+    statusCode: 409,
+  });
+}
+
+function invalidState(message) {
+  return new AppError({ code: "INVALID_STATE", message, statusCode: 409 });
+}
+
+function groupSelected(rows, keyFactory) {
+  const groups = new Map();
+  for (const row of rows) {
+    const key = keyFactory(row);
+    const group = groups.get(key) ?? { rows: [], qty: 0 };
+    group.rows.push(row);
+    group.qty += row.qty;
+    groups.set(key, group);
+  }
+  return groups;
+}
+
+export async function approveAllocation(input) {
+  const selection = validateApproveAllocation(input);
+  if (!pendingPlan) {
+    throw invalidState("Generate an allocation before approving it");
+  }
+  const selectedIds = selection.all ? null : new Set(selection.rowIds);
+  const selectedRows = pendingPlan.rows.filter(
+    (row) => (selectedIds === null || selectedIds.has(row.id)) && row.qty > 0,
+  );
+  if (!selection.all && selectedRows.length !== selectedIds.size) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      message: "One or more allocation rows were not found in the current plan",
+      statusCode: 404,
+    });
+  }
+
+  const context = await getPlanningContext();
+  const stockGroups = groupSelected(
+    selectedRows,
+    (row) => `${row.depotId}:${row.item}`,
+  );
+  const inventoryUpdates = [];
+  for (const [key, group] of stockGroups) {
+    const [depotId, item] = key.split(":");
+    const stock = context.depots
+      .find((depot) => depot.id === depotId)
+      ?.stock.find((entry) => entry.item === item);
+    if (!stock || stock.qty < group.qty) throw insufficientStock();
+    inventoryUpdates.push({
+      depotId,
+      item,
+      oldQty: stock.qty,
+      newQty: stock.qty - group.qty,
+    });
+  }
+
+  for (const update of inventoryUpdates) {
+    if (!(await updateInventoryQuantity(update))) throw insufficientStock();
+  }
+  await insertApprovedAllocations(selectedRows);
+  await insertDispatchLogs(selectedRows);
+
+  const requestItemGroups = groupSelected(
+    selectedRows,
+    (row) => `${row.requestId}:${row.item}`,
+  );
+  for (const [key, group] of requestItemGroups) {
+    const separator = key.lastIndexOf(":");
+    const requestId = key.slice(0, separator);
+    const item = key.slice(separator + 1);
+    const request = context.requests.find((entry) => entry.id === requestId);
+    const current = request?.items.find((entry) => entry.item === item);
+    if (!current) continue;
+    await updateRequestItemAllocation({
+      requestId,
+      item,
+      qtyAllocated: Math.min(current.qtyNeeded, current.qtyAllocated + group.qty),
+    });
+  }
+
+  for (const requestId of new Set(selectedRows.map((row) => row.requestId))) {
+    const request = context.requests.find((entry) => entry.id === requestId);
+    if (!request) continue;
+    const extra = selectedRows
+      .filter((row) => row.requestId === requestId)
+      .reduce((total, row) => total + row.qty, 0);
+    const needed = request.items.reduce((total, item) => total + item.qtyNeeded, 0);
+    const allocated =
+      request.items.reduce((total, item) => total + item.qtyAllocated, 0) + extra;
+    const status = allocated === 0 ? "pending" : allocated >= needed ? "allocated" : "partially_allocated";
+    await updateRequestStatus(requestId, status);
+  }
+
+  pendingPlan = null;
+  const [requests, depots] = await Promise.all([listRequests(), listDepots()]);
+  return { approved: selectedRows.length, requests, depots };
+}
+
+export function mapSavedAllocationRows(rows) {
+  const totals = new Map();
+  for (const row of rows) {
+    const key = `${row.request_id}:${row.item}`;
+    totals.set(key, (totals.get(key) ?? 0) + row.qty);
+  }
+  return rows.map((row) => {
+    const request = Array.isArray(row.requests) ? row.requests[0] : row.requests;
+    const depot = Array.isArray(row.depots) ? row.depots[0] : row.depots;
+    const items = request?.request_items ?? [];
+    const requestItem = items.find((entry) => entry.item === row.item);
+    const qtyNeeded = requestItem?.qty_needed ?? row.qty;
+    const allocated = totals.get(`${row.request_id}:${row.item}`) ?? row.qty;
+    return {
+      id: row.id,
+      requestId: row.request_id,
+      area: request?.area ?? "Unknown area",
+      depotId: row.depot_id,
+      depotName: depot?.name ?? "Unknown depot",
+      vehicleId: row.vehicle_id,
+      item: row.item,
+      qty: row.qty,
+      qtyNeeded,
+      unfulfilled: Math.max(0, qtyNeeded - allocated),
+      fulfilmentPct: qtyNeeded ? Math.round((allocated / qtyNeeded) * 100) : 0,
+      distanceKm: row.distance_km,
+      etaMin: row.eta_min,
+      status: row.status,
+      reason: row.reason,
+    };
+  });
+}
+
+export async function getAllocation() {
+  return mapSavedAllocationRows(await findSavedAllocations());
+}

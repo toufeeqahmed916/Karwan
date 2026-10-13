@@ -3,7 +3,7 @@
 ## Before presenting
 
 1. Start the Vite app and open `/dashboard`.
-2. Press **Reset demo** and confirm the seeded state is restored.
+2. Press **Reset demo** and confirm the SQL seed state is restored.
 3. Check that map tiles load and the Need heat layer is visible.
 4. Keep `/driver` and `/tracker` ready in separate tabs.
 5. Record one backup screen capture after the full rehearsal succeeds.

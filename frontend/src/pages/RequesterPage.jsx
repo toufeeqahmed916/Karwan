@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { createRequest } from "../lib/api.js";
+import { useEffect, useState } from "react";
+import { createRequest, getWeights } from "../lib/api.js";
 import { URGENCY, ACCESS, ITEMS, ITEM_LABEL } from "../lib/constants.js";
 import MapView from "../components/MapView.jsx";
 import ScoreBars from "../components/ScoreBars.jsx";
@@ -13,6 +13,11 @@ export default function RequesterPage() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState(null);
+  const [weights, setWeights] = useState(null);
+
+  useEffect(() => {
+    getWeights().then(setWeights).catch(() => {});
+  }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -50,15 +55,15 @@ export default function RequesterPage() {
         <div className="panel space-y-4 p-6">
           <h2 className="text-2xl font-bold">Request sent for {created.area}</h2>
           <p className="text-sm text-mute">Status: Pending. Your priority score is {created.score.total} out of 100.</p>
-          <ScoreBars score={created.score} />
+          <ScoreBars score={created.score} weights={weights} />
           <button className="btn-primary" onClick={() => { setCreated(null); setForm(empty); setPin(null); setQty({}); }}>Send another request</button>
         </div>
       </div>
     );
 
   return (
-    <div className="grid h-full grid-cols-1 gap-4 p-4 lg:grid-cols-[420px_1fr]">
-      <form onSubmit={submit} noValidate className="panel space-y-4 overflow-y-auto p-5">
+    <div className="grid h-full grid-cols-1 gap-4 overflow-y-auto p-4 lg:grid-cols-[420px_1fr] lg:overflow-hidden">
+      <form onSubmit={submit} noValidate className="panel space-y-4 p-5 lg:overflow-y-auto">
         <h2 className="text-2xl font-bold">Ask for relief supplies</h2>
         <div>
           <label className="label" htmlFor="area">Area name</label>
@@ -112,7 +117,7 @@ export default function RequesterPage() {
         {errors.form && <p role="alert" className="err">{errors.form}</p>}
         <button className="btn-lime w-full" disabled={saving}>{saving ? "Sending..." : "Send request"}</button>
       </form>
-      <MapView pin={pin} onPick={setPin} />
+      <MapView pin={pin} onPick={setPin} height="min(520px, 60vh)" />
     </div>
   );
 }

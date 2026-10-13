@@ -32,6 +32,8 @@ export default function RequestsPage() {
   }
 
   const selected = requests.find((r) => r.id === selectedId);
+  const totalNeeded = selected?.items.reduce((total, item) => total + item.qtyNeeded, 0) ?? 0;
+  const totalAllocated = selected?.items.reduce((total, item) => total + item.qtyAllocated, 0) ?? 0;
 
   if (loading) return <p className="p-6 text-mute">Loading requests...</p>;
   if (error) return <p role="alert" className="p-6 text-crit">{error}</p>;
@@ -74,13 +76,36 @@ export default function RequestsPage() {
             </div>
             <p className="mb-3 text-sm">Total score <strong>{selected.score.total}</strong> out of 100</p>
             <ScoreBars score={selected.score} weights={weights} />
-            <ul className="mt-4 space-y-1 text-sm">
-              {selected.items.map((i) => (
-                <li key={i.item} className="flex justify-between">
-                  <span>{ITEM_LABEL[i.item]}</span><span>{i.qtyAllocated} of {i.qtyNeeded}</span>
-                </li>
-              ))}
-            </ul>
+            <section className="mt-5 rounded-panel border border-line bg-paper p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-bold">Requested supplies</h3>
+                  <p className="mt-0.5 text-xs text-mute">Quantities selected by the requester</p>
+                </div>
+                <span className="rounded-ui bg-card px-2 py-1 text-sm font-bold">{totalNeeded.toLocaleString()} units</span>
+              </div>
+              <ul className="mt-3 divide-y divide-line rounded-ui border border-line bg-card text-sm">
+                {selected.items.map((item) => {
+                  const remaining = Math.max(0, item.qtyNeeded - item.qtyAllocated);
+                  return (
+                    <li key={item.item} className="p-3">
+                      <div className="flex justify-between gap-3">
+                        <strong>{ITEM_LABEL[item.item]}</strong>
+                        <strong>{item.qtyNeeded.toLocaleString()} requested</strong>
+                      </div>
+                      <div className="mt-1 flex justify-between gap-3 text-xs text-mute">
+                        <span>{item.qtyAllocated.toLocaleString()} allocated</span>
+                        <span>{remaining.toLocaleString()} remaining</span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-3 flex justify-between text-sm">
+                <span className="text-mute">Total allocated</span>
+                <strong>{totalAllocated.toLocaleString()} of {totalNeeded.toLocaleString()}</strong>
+              </div>
+            </section>
           </div>
         )}
         <div className="border-t border-line pt-4">

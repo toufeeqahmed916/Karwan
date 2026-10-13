@@ -110,6 +110,11 @@ export default function DriverPage() {
               <div className="p-5">
                 <div className="flex justify-between text-sm"><span className="text-mute">Trip progress</span><strong>{delivery.progressPct}%</strong></div>
                 <div className="mt-2 h-3 overflow-hidden rounded-full bg-line"><div className={`h-full rounded-full transition-all ${delivery.status === "delivered" ? "bg-done" : "bg-transit"}`} style={{ width: `${delivery.progressPct}%` }} /></div>
+                {delivery.status === "in_transit" && delivery.progressPct >= 96 && (
+                  <p role="status" className="mt-3 rounded-ui border border-done/20 bg-done/10 px-3 py-2 text-sm font-semibold text-done">
+                    Arrived at the destination. Confirm the handover below.
+                  </p>
+                )}
 
                 <h3 className="mt-5 font-bold">Load</h3>
                 <ul className="mt-2 divide-y divide-line rounded-ui border border-line">
@@ -117,8 +122,12 @@ export default function DriverPage() {
                 </ul>
 
                 <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                  <button className="btn-primary w-full" onClick={startTrip} disabled={working || delivery.status !== "approved"}>Start trip</button>
-                  <button className="btn-lime w-full" onClick={markDelivered} disabled={working || delivery.status !== "in_transit"}>Mark delivered</button>
+                  <button className="btn-primary w-full" onClick={startTrip} disabled={working || delivery.status !== "approved"}>
+                    {delivery.status === "approved" ? "Start trip" : delivery.status === "in_transit" ? "Trip started" : "Trip completed"}
+                  </button>
+                  <button className="btn-lime w-full" onClick={markDelivered} disabled={working || delivery.status !== "in_transit"}>
+                    {delivery.status === "delivered" ? "Delivered" : "Mark delivered"}
+                  </button>
                 </div>
                 <p className="mt-3 text-center text-xs text-mute">Updates every 2 seconds · {connection.mode} fallback active</p>
               </div>

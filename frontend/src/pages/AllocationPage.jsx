@@ -13,7 +13,6 @@ export default function AllocationPage() {
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
-  const [approved, setApproved] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [route, setRoute] = useState(null);
@@ -24,8 +23,7 @@ export default function AllocationPage() {
         setOverview(overviewData);
         if (savedRows.length) {
           setPlan({ rows: savedRows, summary: null, baseline: null });
-          setApproved(true);
-          setSelectedId(savedRows[0].id);
+          setSelectedId(savedRows[0].requestId);
         }
       })
       .catch((requestError) => setError(requestError.message))
@@ -33,7 +31,7 @@ export default function AllocationPage() {
   }, []);
 
   useEffect(() => {
-    const row = plan?.rows.find((entry) => entry.id === selectedId);
+    const row = plan?.rows.find((entry) => entry.requestId === selectedId && entry.depotId);
     if (!row?.depotId || !row.requestId) {
       setRoute(null);
       return;
@@ -48,8 +46,7 @@ export default function AllocationPage() {
     try {
       const result = await generateAllocation();
       setPlan(result);
-      setSelectedId(result.rows[0]?.id ?? null);
-      setApproved(false);
+      setSelectedId(result.rows[0]?.requestId ?? null);
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -57,15 +54,21 @@ export default function AllocationPage() {
     }
   }
 
-  async function approve() {
+  async function approve(body = { all: true }, requestId = null) {
     setWorking(true);
     setError("");
     setNotice("");
     try {
-      const result = await approveAllocation({ all: true });
-      setPlan((current) => ({ ...current, rows: current.rows.map((row) => ({ ...row, status: "approved" })) }));
-      setApproved(true);
-      setNotice(`${result.approved} allocation rows approved. Stock and request statuses were updated.`);
+      const result = await approveAllocation(body);
+      setPlan((current) => ({
+        ...current,
+        rows: current.rows.map((row) => (
+          !requestId || row.requestId === requestId ? { ...row, status: "approved" } : row
+        )),
+      }));
+      setNotice(requestId
+        ? `Request approved with ${result.approved} supply allocations. Stock was reduced and one truck was assigned per depot allocation.`
+        : `${result.approved} allocation rows approved. Stock, trucks and request statuses were updated.`);
       setOverview(await getCoordinatorOverview());
     } catch (requestError) {
       setError(requestError.code === "INSUFFICIENT_STOCK"
@@ -78,9 +81,25 @@ export default function AllocationPage() {
 
   if (loading) return <p className="p-6 text-mute">Loading allocation workspace...</p>;
 
-  const selected = plan?.rows.find((row) => row.id === selectedId);
+  const selectedRows = plan?.rows.filter((row) => row.requestId === selectedId) ?? [];
+  const selected = selectedRows.find((row) => row.depotId) ?? selectedRows[0];
   const request = overview?.requests.find((entry) => entry.id === selected?.requestId);
   const depot = overview?.depots.find((entry) => entry.id === selected?.depotId);
+  const selectedAllocated = selectedRows.reduce((total, row) => total + row.qty, 0);
+  const selectedItems = [...selectedRows.reduce((items, row) => {
+    const item = items.get(row.item) ?? { item: row.item, qty: 0, qtyNeeded: 0 };
+    item.qty += row.qty;
+    item.qtyNeeded = Math.max(item.qtyNeeded, row.qtyNeeded);
+    items.set(row.item, item);
+    return items;
+  }, new Map()).values()];
+  const selectedNeeded = selectedItems.reduce((total, item) => total + item.qtyNeeded, 0);
+  const selectedDepots = [...new Set(selectedRows.map((row) => row.depotName))];
+  const selectedVehicles = [...new Set(selectedRows.map((row) => row.vehicleId).filter(Boolean))];
+  const hasPendingRows = plan?.rows.some((row) => row.qty > 0 && row.status !== "approved");
+  const selectedRequestPending = selected && plan.rows.some((row) =>
+    row.requestId === selected.requestId && row.qty > 0 && row.status !== "approved"
+  );
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
@@ -93,7 +112,7 @@ export default function AllocationPage() {
           </div>
           <div className="flex gap-2">
             <button className="btn-ghost" onClick={generate} disabled={working}>{plan ? "Regenerate" : "Generate allocation"}</button>
-            <button className="btn-lime" onClick={approve} disabled={working || !plan?.rows.length || approved}>{working ? "Working..." : approved ? "Approved" : "Approve all"}</button>
+            <button className="btn-lime" onClick={() => approve()} disabled={working || !hasPendingRows}>{working ? "Working..." : hasPendingRows ? "Approve all" : "Approved"}</button>
           </div>
         </div>
 
@@ -124,7 +143,7 @@ export default function AllocationPage() {
             <section className="panel mb-4 overflow-hidden">
               <div className="border-b border-line px-5 py-4">
                 <h2 className="text-lg font-bold">Recommended allocations</h2>
-                <p className="mt-1 text-sm text-mute">Click a row to inspect its reason and estimated route.</p>
+                <p className="mt-1 text-sm text-mute">Each request appears once. Click it to inspect its supplies, trucks and estimated route.</p>
               </div>
               <AllocationTable rows={plan.rows} selectedId={selectedId} onSelect={setSelectedId} />
             </section>
@@ -133,14 +152,30 @@ export default function AllocationPage() {
               <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
                 <section className="panel p-5">
                   <p className="text-xs font-semibold uppercase tracking-wider text-mute">Why this recommendation</p>
-                  <h2 className="mt-1 text-xl font-bold">{selected.area} · {selected.depotName}</h2>
-                  <p className="mt-3 text-sm leading-6">{selected.reason}</p>
+                  <h2 className="mt-1 text-xl font-bold">{selected.area}</h2>
+                  <p className="mt-1 text-sm text-mute">{selectedDepots.join(", ")}</p>
+                  <div className="mt-4 space-y-2">
+                    {selectedItems.map((item) => (
+                      <div key={item.item} className="flex justify-between gap-3 rounded-ui border border-line bg-paper px-3 py-2 text-sm">
+                        <span className="capitalize">{item.item}</span>
+                        <strong>{item.qty.toLocaleString()} of {item.qtyNeeded.toLocaleString()}</strong>
+                      </div>
+                    ))}
+                  </div>
                   <dl className="mt-4 grid grid-cols-2 gap-3 rounded-panel bg-paper p-4 text-sm">
-                    <div><dt className="text-mute">Vehicle</dt><dd className="font-semibold">{selected.vehicleId || "Not assigned"}</dd></div>
-                    <div><dt className="text-mute">Remaining need</dt><dd className="font-semibold">{selected.unfulfilled.toLocaleString()} units</dd></div>
+                    <div><dt className="text-mute">Truck</dt><dd className="font-semibold">{selectedVehicles.join(", ") || "Not assigned"}</dd></div>
+                    <div><dt className="text-mute">Remaining need</dt><dd className="font-semibold">{Math.max(0, selectedNeeded - selectedAllocated).toLocaleString()} units</dd></div>
                     <div><dt className="text-mute">Distance</dt><dd className="font-semibold">{selected.distanceKm == null ? "Unavailable" : `${selected.distanceKm} km`}</dd></div>
                     <div><dt className="text-mute">ETA</dt><dd className="font-semibold">{selected.etaMin == null ? "Unavailable" : `${selected.etaMin} min`}</dd></div>
                   </dl>
+                  <button
+                    type="button"
+                    className="btn-lime mt-4 w-full"
+                    onClick={() => approve({ requestId: selected.requestId }, selected.requestId)}
+                    disabled={working || !selectedRequestPending}
+                  >
+                    {working ? "Approving..." : selectedRequestPending ? "Approve this request" : "Request approved"}
+                  </button>
                 </section>
                 <section className="panel overflow-hidden">
                   <div className="border-b border-line px-4 py-3">

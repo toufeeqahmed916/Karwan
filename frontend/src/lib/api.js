@@ -156,6 +156,35 @@ export async function getDepots() {
   return clone(db.depots);
 }
 
+export async function createDepot(body) {
+  if (!mocked("inventory")) return http("/depots", { method: "POST", body });
+
+  await wait();
+  const depot = {
+    id: makeId("dep"),
+    name: body.name.trim(),
+    lat: Number(body.lat),
+    lng: Number(body.lng),
+    dailyCapacity: Number(body.dailyCapacity),
+    stock: body.inventory.map((entry) => ({
+      item: entry.item,
+      qty: Number(entry.qty),
+      lowThreshold: Number(entry.lowThreshold),
+      isLow: Number(entry.qty) < Number(entry.lowThreshold),
+    })),
+    vehicles: body.vehicles.map((vehicle) => ({
+      id: makeId("veh"),
+      name: vehicle.name.trim(),
+      capacity: Number(vehicle.capacity),
+      status: "available",
+      lat: Number(body.lat),
+      lng: Number(body.lng),
+    })),
+  };
+  db.depots.push(depot);
+  return clone(depot);
+}
+
 export async function patchDepotInventory(depotId, body) {
   if (!mocked("inventory")) {
     return http(`/depots/${depotId}/inventory`, { method: "PATCH", body });
@@ -388,8 +417,26 @@ export async function approveAllocation(body = { all: true }) {
   await wait(300);
   if (!db.generatedAllocation) throw Object.assign(new Error("Generate an allocation first"), { code: "VALIDATION_ERROR" });
 
-  const selectedIds = body.all ? null : new Set(body.rowIds || []);
-  const selectedRows = db.generatedAllocation.rows.filter((row) => !selectedIds || selectedIds.has(row.id));
+  const selectedIds = body.rowIds ? new Set(body.rowIds) : null;
+  const selectedRows = db.generatedAllocation.rows.filter((row) =>
+    row.status !== "approved" && (
+      body.all ||
+      (body.requestId && row.requestId === body.requestId) ||
+      selectedIds?.has(row.id)
+    ),
+  );
+  if (!selectedRows.some((row) => row.qty > 0)) {
+    throw Object.assign(new Error("The selected request has no supplies available to approve"), { code: "INVALID_STATE" });
+  }
+
+  const vehicleByAllocation = new Map();
+  selectedRows.forEach((row) => {
+    if (!row.depotId || !row.vehicleId) return;
+    const key = `${row.requestId}:${row.depotId}`;
+    const vehicleId = vehicleByAllocation.get(key) || row.vehicleId;
+    vehicleByAllocation.set(key, vehicleId);
+    row.vehicleId = vehicleId;
+  });
   const requiredStock = new Map();
   selectedRows.forEach((row) => {
     if (row.depotId && row.qty > 0) {
@@ -430,8 +477,13 @@ export async function approveAllocation(body = { all: true }) {
     request.status = allocated === 0 ? "pending" : allocated >= needed ? "allocated" : "partially_allocated";
   }
 
-  db.allocations = clone(selectedRows);
-  return clone({ approved: selectedRows.filter((row) => row.qty > 0).length, requests: db.requests, depots: db.depots });
+  db.allocations.push(...clone(selectedRows.filter((row) => row.qty > 0)));
+  return clone({
+    approved: selectedRows.filter((row) => row.qty > 0).length,
+    approvedRequests: new Set(selectedRows.map((row) => row.requestId)).size,
+    requests: db.requests,
+    depots: db.depots,
+  });
 }
 
 /* ---------- Phase 5: what-if simulator ---------- */
@@ -700,11 +752,7 @@ function syncDeliveryProgress() {
   const now = Date.now();
   db.deliveries.forEach((delivery) => {
     if (delivery.status !== "in_transit" || !delivery.startedAt) return;
-    const progressPct = Math.min(100, Math.round((now - delivery.startedAt) / 300));
-    if (progressPct >= 100) {
-      finishDelivery(delivery);
-      return;
-    }
+    const progressPct = Math.min(96, Math.round((now - delivery.startedAt) / 300));
     delivery.progressPct = progressPct;
     const point = positionAlongRoute(delivery.route, progressPct);
     delivery.lat = Number(point.lat.toFixed(5));

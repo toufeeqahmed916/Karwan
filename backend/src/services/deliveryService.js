@@ -17,6 +17,7 @@ import { getRoute } from "./routeService.js";
 
 const TICK_MS = 1000;
 const PROGRESS_PER_TICK = 4;
+const ARRIVAL_PROGRESS = 96;
 const simulators = new Map();
 
 function one(relation) {
@@ -163,20 +164,18 @@ function startSimulator(group, route, initialProgress = 0) {
     if (updating) return;
     updating = true;
     try {
-      progress = Math.min(100, progress + PROGRESS_PER_TICK);
+      progress = Math.min(ARRIVAL_PROGRESS, progress + PROGRESS_PER_TICK);
       const point = positionAlongRoute(route.polyline, progress);
       const ids = group.rows.map((row) => row.id);
       await updateAllocationProgress(ids, {
         progress_pct: progress,
-        ...(progress === 100 ? { status: "delivered" } : {}),
       });
       await updateVehicleState(group.vehicleId, {
         current_lat: Number(point.lat.toFixed(6)),
         current_lng: Number(point.lng.toFixed(6)),
       });
-      if (progress === 100) {
+      if (progress === ARRIVAL_PROGRESS) {
         stopSimulator(group.key);
-        await finishGroup(group);
       }
     } catch (error) {
       console.error(`Truck simulator failed for ${group.key}`, error);

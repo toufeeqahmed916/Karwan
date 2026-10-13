@@ -15,6 +15,11 @@ export default function RequesterPage() {
   const [created, setCreated] = useState(null);
   const [weights, setWeights] = useState(null);
 
+  const selectedSupplies = ITEMS
+    .filter((item) => Number(qty[item]) > 0)
+    .map((item) => ({ item, quantity: Number(qty[item]) }));
+  const totalSelectedUnits = selectedSupplies.reduce((total, entry) => total + entry.quantity, 0);
+
   useEffect(() => {
     getWeights().then(setWeights).catch(() => {});
   }, []);
@@ -111,6 +116,24 @@ export default function RequesterPage() {
                 <input type="number" min="0" className="field mt-1" value={qty[i] ?? ""} onChange={(e) => setQty((q) => ({ ...q, [i]: e.target.value }))} />
               </label>
             ))}
+          </div>
+          <div className="mt-3 rounded-panel border border-line bg-paper p-3" aria-live="polite">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold">Selected supplies</span>
+              <strong>{totalSelectedUnits.toLocaleString()} total units</strong>
+            </div>
+            {selectedSupplies.length ? (
+              <ul className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-mute">
+                {selectedSupplies.map(({ item, quantity }) => (
+                  <li key={item} className="flex justify-between gap-2">
+                    <span>{ITEM_LABEL[item]}</span>
+                    <strong className="text-ink">{quantity.toLocaleString()}</strong>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-mute">No supplies selected yet.</p>
+            )}
           </div>
           {errors.items && <p className="err">{errors.items}</p>}
         </fieldset>

@@ -33,6 +33,16 @@ describe("allocation endpoints", () => {
     expect(response.body.data.approved).toBe(2);
   });
 
+  it("approves a single request allocation", async () => {
+    approveAllocation.mockResolvedValue({ approved: 3, approvedRequests: 1, requests: [], depots: [] });
+    const response = await request(createApp())
+      .post("/api/allocation/approve")
+      .send({ requestId: "req_01" });
+    expect(response.status).toBe(200);
+    expect(approveAllocation).toHaveBeenCalledWith({ requestId: "req_01" });
+    expect(response.body.data.approvedRequests).toBe(1);
+  });
+
   it("returns saved allocation rows", async () => {
     getAllocation.mockResolvedValue([{ id: "alc_01" }]);
     const response = await request(createApp()).get("/api/allocation");

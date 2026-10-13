@@ -110,5 +110,35 @@ describe("allocation service approval", () => {
     });
     expect(updateRequestStatus).toHaveBeenCalledWith("req_01", "allocated");
     expect(result.approved).toBe(1);
+    expect(result.approvedRequests).toBe(1);
+  });
+
+  it("approves one request and keeps the remaining plan available", async () => {
+    findRequestsForScoring.mockResolvedValue([
+      requestRows[0],
+      {
+        ...requestRows[0],
+        id: "req_02",
+        area: "Larkana",
+        population: 2000,
+        request_items: [{ item: "water", qty_needed: 300, qty_allocated: 0 }],
+      },
+    ]);
+
+    const plan = await generateAllocation({});
+    const firstRequestRows = plan.rows.filter((row) => row.requestId === "req_01");
+    const secondRequestRows = plan.rows.filter((row) => row.requestId === "req_02");
+    expect(firstRequestRows.length).toBeGreaterThan(0);
+    expect(secondRequestRows.length).toBeGreaterThan(0);
+
+    const first = await approveAllocation({ requestId: "req_01" });
+    expect(first.approvedRequests).toBe(1);
+    expect(insertApprovedAllocations).toHaveBeenLastCalledWith(
+      expect.arrayContaining(firstRequestRows.map((row) => expect.objectContaining({ id: row.id, vehicleId: "veh_01" }))),
+    );
+
+    const second = await approveAllocation({ requestId: "req_02" });
+    expect(second.approvedRequests).toBe(1);
+    expect(insertApprovedAllocations).toHaveBeenCalledTimes(2);
   });
 });

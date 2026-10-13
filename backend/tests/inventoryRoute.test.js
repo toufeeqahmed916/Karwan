@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../src/services/inventoryService.js", () => ({
   addVehicle: vi.fn(),
   adjustInventory: vi.fn(),
+  createDepot: vi.fn(),
   listDepots: vi.fn(),
   listStockLog: vi.fn(),
   removeVehicle: vi.fn(),
@@ -15,6 +16,7 @@ import { createApp } from "../src/app.js";
 import {
   addVehicle,
   adjustInventory,
+  createDepot,
   listDepots,
   listStockLog,
   removeVehicle,
@@ -40,6 +42,29 @@ describe("inventory endpoints", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ data: [depot] });
+  });
+
+  it("creates Hyderabad depot inventory and trucks", async () => {
+    createDepot.mockResolvedValue(depot);
+    const body = {
+      name: "Hyderabad Depot",
+      lat: 25.396,
+      lng: 68.3578,
+      dailyCapacity: 2000,
+      inventory: [
+        { item: "food", qty: 900, lowThreshold: 250 },
+        { item: "water", qty: 1200, lowThreshold: 300 },
+        { item: "medicine", qty: 100, lowThreshold: 40 },
+        { item: "shelter", qty: 250, lowThreshold: 60 },
+      ],
+      vehicles: [{ name: "Truck 1", capacity: 400 }],
+    };
+
+    const response = await request(createApp()).post("/api/depots").send(body);
+
+    expect(response.status).toBe(201);
+    expect(createDepot).toHaveBeenCalledWith(body);
+    expect(response.body).toEqual({ data: depot });
   });
 
   it("adjusts depot inventory", async () => {

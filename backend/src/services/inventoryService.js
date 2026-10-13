@@ -2,6 +2,7 @@ import { AppError } from "../errors/AppError.js";
 import { mapDatabaseRow, mapDatabaseRows } from "../mappers/databaseMapper.js";
 import {
   createDepotVehicle,
+  createDepotWithInventory,
   deleteDepotVehicleById,
   findDepotById,
   findDepotVehicle,
@@ -14,6 +15,7 @@ import {
 } from "../repositories/inventoryRepository.js";
 import {
   validateCreateVehicle,
+  validateCreateDepot,
   validateDepotUpdate,
   validateInventoryAdjustment,
   validateStockLogFilters,
@@ -57,6 +59,12 @@ function assembleDepots({ depots, stock, vehicles }) {
 
 export async function listDepots() {
   return assembleDepots(await findDepots());
+}
+
+export async function createDepot(input) {
+  const setup = validateCreateDepot(input);
+  const created = await createDepotWithInventory(setup);
+  return getDepotById(created.id);
 }
 
 export async function getDepotById(id) {

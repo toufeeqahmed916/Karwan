@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import DepotCard from "../components/DepotCard.jsx";
+import DepotSetupForm from "../components/DepotSetupForm.jsx";
 import StockLog from "../components/StockLog.jsx";
 import {
-  addDepotVehicle, getDepots, getStockLog, patchDepot, patchDepotInventory,
+  addDepotVehicle, createDepot, getDepots, getStockLog, patchDepot, patchDepotInventory,
   removeDepotVehicle, updateDepotVehicle,
 } from "../lib/api.js";
 
@@ -14,6 +15,7 @@ export default function InventoryPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [showSetup, setShowSetup] = useState(false);
 
   useEffect(() => {
     getDepots()
@@ -90,8 +92,27 @@ export default function InventoryPage() {
     }
   }
 
+  async function setupDepot(body) {
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const depot = await createDepot(body);
+      setDepots((current) => [...current, depot]);
+      setSelectedId(depot.id);
+      setEntries([]);
+      setShowSetup(false);
+      setNotice(`${depot.name} inventory and trucks were added.`);
+      return true;
+    } catch (requestError) {
+      setError(requestError.message);
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (loading) return <p className="p-6 text-mute">Loading inventory...</p>;
-  if (!depots.length) return <p className="p-6">No depots are available.</p>;
 
   return (
     <div className="h-full overflow-y-auto p-4 sm:p-6">
@@ -107,10 +128,15 @@ export default function InventoryPage() {
             <span className={`rounded-ui border px-3 py-2 ${lowStockItems ? "border-crit/30 bg-crit/10 text-crit" : "border-line bg-card"}`}>
               <strong>{lowStockItems}</strong> low-stock alerts
             </span>
+            {!!depots.length && <button type="button" className="btn-primary" onClick={() => { setShowSetup(true); setError(""); setNotice(""); }}>+ New depot</button>}
           </div>
         </div>
 
-        <div className="mb-4 grid gap-3 md:grid-cols-3">
+        {showSetup || !depots.length ? (
+          <div className="mb-4"><DepotSetupForm busy={busy} onCreate={setupDepot} onCancel={depots.length ? () => setShowSetup(false) : undefined} /></div>
+        ) : null}
+
+        {!!depots.length && !showSetup && <div className="mb-4 grid gap-3 md:grid-cols-3">
           {depots.map((depot) => {
             const lows = depot.stock.filter((item) => item.isLow).length;
             return (
@@ -124,12 +150,12 @@ export default function InventoryPage() {
               </button>
             );
           })}
-        </div>
+        </div>}
 
         {error && <p role="alert" className="mb-4 rounded-ui border border-crit/20 bg-crit/10 px-4 py-3 text-sm text-crit">{error}</p>}
         {notice && <p role="status" className="mb-4 rounded-ui border border-done/20 bg-done/10 px-4 py-3 text-sm text-done">{notice}</p>}
 
-        {selectedDepot && (
+        {!!depots.length && !showSetup && selectedDepot && (
           <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
             <DepotCard depot={selectedDepot} busy={busy} onAdjust={adjustInventory} onCapacity={updateCapacity}
               onAddVehicle={(body) => changeVehicle(() => addDepotVehicle(selectedId, body), "Vehicle added.")}

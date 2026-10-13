@@ -108,16 +108,38 @@ export async function approveAllocation(input) {
   if (!pendingPlan) {
     throw invalidState("Generate an allocation before approving it");
   }
-  const selectedIds = selection.all ? null : new Set(selection.rowIds);
-  const selectedRows = pendingPlan.rows.filter(
-    (row) => (selectedIds === null || selectedIds.has(row.id)) && row.qty > 0,
-  );
-  if (!selection.all && selectedRows.length !== selectedIds.size) {
+  const selectedIds = selection.rowIds ? new Set(selection.rowIds) : null;
+  const matchingRows = pendingPlan.rows.filter((row) => (
+    selection.all ||
+    (selection.requestId && row.requestId === selection.requestId) ||
+    selectedIds?.has(row.id)
+  ));
+  if (!selection.all && matchingRows.length === 0) {
+    throw new AppError({
+      code: "NOT_FOUND",
+      message: selection.requestId
+        ? "Request was not found in the current allocation plan"
+        : "One or more allocation rows were not found in the current plan",
+      statusCode: 404,
+    });
+  }
+  if (selectedIds && matchingRows.length !== selectedIds.size) {
     throw new AppError({
       code: "NOT_FOUND",
       message: "One or more allocation rows were not found in the current plan",
       statusCode: 404,
     });
+  }
+  const selectedRows = matchingRows.filter((row) => row.qty > 0);
+  if (selectedRows.length === 0) {
+    throw invalidState("The selected request has no supplies available to approve");
+  }
+
+  // Every depot-to-request allocation uses one truck for all of its supply rows.
+  for (const group of groupSelected(selectedRows, (row) => `${row.requestId}:${row.depotId}`).values()) {
+    const vehicleId = group.rows.find((row) => row.vehicleId)?.vehicleId;
+    if (!vehicleId) throw invalidState("No truck is available for this allocation");
+    group.rows.forEach((row) => { row.vehicleId = vehicleId; });
   }
 
   const context = await getPlanningContext();
@@ -177,9 +199,18 @@ export async function approveAllocation(input) {
     await updateRequestStatus(requestId, status);
   }
 
-  pendingPlan = null;
+  const consumedIds = new Set(matchingRows.map((row) => row.id));
+  const remainingRows = pendingPlan.rows.filter((row) => !consumedIds.has(row.id));
+  pendingPlan = selection.all || !remainingRows.some((row) => row.qty > 0)
+    ? null
+    : { ...pendingPlan, rows: remainingRows };
   const [requests, depots] = await Promise.all([listRequests(), listDepots()]);
-  return { approved: selectedRows.length, requests, depots };
+  return {
+    approved: selectedRows.length,
+    approvedRequests: [...new Set(selectedRows.map((row) => row.requestId))].length,
+    requests,
+    depots,
+  };
 }
 
 export function mapSavedAllocationRows(rows) {

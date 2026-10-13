@@ -16,6 +16,44 @@ export async function findDepots() {
   };
 }
 
+export async function createDepotWithInventory({ depot, inventory, vehicles }) {
+  let createdDepot;
+
+  try {
+    const depotResult = await supabaseAdmin
+      .from(TABLES.depots)
+      .insert(depot)
+      .select("*")
+      .single();
+    createdDepot = unwrapSupabaseResult(depotResult, "create depot");
+
+    const inventoryResult = await supabaseAdmin.from(TABLES.inventory).insert(
+      inventory.map((entry) => ({ ...entry, depot_id: createdDepot.id })),
+    );
+    unwrapSupabaseResult(inventoryResult, "create depot inventory");
+
+    const vehiclesResult = await supabaseAdmin.from(TABLES.vehicles).insert(
+      vehicles.map((vehicle) => ({
+        depot_id: createdDepot.id,
+        name: vehicle.name,
+        capacity: vehicle.capacity,
+        status: "available",
+        current_lat: createdDepot.lat,
+        current_lng: createdDepot.lng,
+      })),
+    );
+    unwrapSupabaseResult(vehiclesResult, "create depot vehicles");
+
+    return createdDepot;
+  } catch (error) {
+    if (createdDepot?.id) {
+      const rollback = await supabaseAdmin.from(TABLES.depots).delete().eq("id", createdDepot.id);
+      if (rollback.error) console.error("Failed to roll back depot creation", rollback.error);
+    }
+    throw error;
+  }
+}
+
 export async function findDepotById(id) {
   const result = await supabaseAdmin
     .from(TABLES.depots)

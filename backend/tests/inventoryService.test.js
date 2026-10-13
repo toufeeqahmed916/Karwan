@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/repositories/inventoryRepository.js", () => ({
   createDepotVehicle: vi.fn(),
+  createDepotWithInventory: vi.fn(),
   deleteDepotVehicleById: vi.fn(),
   findDepotById: vi.fn(),
   findDepotVehicle: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("../src/repositories/inventoryRepository.js", () => ({
 }));
 
 import {
+  createDepotWithInventory,
   findDepotById,
   findDepots,
   findInventoryItem,
@@ -22,6 +24,7 @@ import {
 } from "../src/repositories/inventoryRepository.js";
 import {
   adjustInventory,
+  createDepot,
   listDepots,
   listStockLog,
 } from "../src/services/inventoryService.js";
@@ -93,6 +96,41 @@ describe("inventory service", () => {
         ],
       },
     ]);
+  });
+
+  it("creates the fixed Hyderabad depot with four items and trucks", async () => {
+    createDepotWithInventory.mockResolvedValue(depotRows.depots[0]);
+    const input = {
+      name: "Hyderabad Depot",
+      lat: 25.396,
+      lng: 68.3578,
+      dailyCapacity: 2000,
+      inventory: [
+        { item: "food", qty: 900, lowThreshold: 250 },
+        { item: "water", qty: 1200, lowThreshold: 300 },
+        { item: "medicine", qty: 100, lowThreshold: 40 },
+        { item: "shelter", qty: 250, lowThreshold: 60 },
+      ],
+      vehicles: [{ name: "Truck 1", capacity: 400 }],
+    };
+
+    await createDepot(input);
+
+    expect(createDepotWithInventory).toHaveBeenCalledWith({
+      depot: {
+        name: "Hyderabad Depot",
+        lat: 25.396,
+        lng: 68.3578,
+        daily_capacity: 2000,
+      },
+      inventory: [
+        { item: "food", qty: 900, low_threshold: 250 },
+        { item: "water", qty: 1200, low_threshold: 300 },
+        { item: "medicine", qty: 100, low_threshold: 40 },
+        { item: "shelter", qty: 250, low_threshold: 60 },
+      ],
+      vehicles: [{ name: "Truck 1", capacity: 400 }],
+    });
   });
 
   it("adjusts inventory, selects the correct log action, and returns the depot", async () => {

@@ -22,7 +22,7 @@ export function validateApproveAllocation(input) {
     invalid("Request body must be a JSON object");
   }
   const unknown = Object.keys(input).filter(
-    (key) => !["all", "rowIds"].includes(key),
+    (key) => !["all", "rowIds", "requestId"].includes(key),
   );
   if (unknown.length > 0) invalid(`Unknown field: ${unknown[0]}`);
 
@@ -30,7 +30,7 @@ export function validateApproveAllocation(input) {
     return { all: true };
   }
   if (
-    input.all === undefined &&
+    input.all === undefined && input.requestId === undefined &&
     Array.isArray(input.rowIds) &&
     input.rowIds.length > 0 &&
     input.rowIds.every((id) => typeof id === "string" && id.trim())
@@ -38,5 +38,11 @@ export function validateApproveAllocation(input) {
     const rowIds = [...new Set(input.rowIds.map((id) => id.trim()))];
     return { all: false, rowIds };
   }
-  invalid('Provide either { "all": true } or a non-empty rowIds array');
+  if (
+    input.all === undefined && input.rowIds === undefined &&
+    typeof input.requestId === "string" && input.requestId.trim()
+  ) {
+    return { all: false, requestId: input.requestId.trim() };
+  }
+  invalid('Provide either { "all": true }, one requestId, or a non-empty rowIds array');
 }

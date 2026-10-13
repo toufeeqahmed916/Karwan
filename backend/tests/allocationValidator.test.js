@@ -13,11 +13,18 @@ describe("allocation validation", () => {
       all: false,
       rowIds: ["alc_01", "alc_02"],
     });
+    expect(validateApproveAllocation({ requestId: " req_01 " })).toEqual({
+      all: false,
+      requestId: "req_01",
+    });
   });
 
   it("rejects ambiguous approval input", () => {
     expect(() => validateApproveAllocation({ all: true, rowIds: ["alc_01"] })).toThrow(
       "Provide either",
+    );
+    expect(() => validateApproveAllocation({ requestId: "req_01", rowIds: ["alc_01"] })).toThrow(
+      "Provide",
     );
   });
 });

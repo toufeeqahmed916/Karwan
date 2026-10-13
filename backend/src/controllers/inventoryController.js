@@ -1,12 +1,21 @@
 import {
   addVehicle,
   adjustInventory,
+  createDepot,
   listDepots,
   listStockLog,
   removeVehicle,
   updateDepot,
   updateVehicle,
 } from "../services/inventoryService.js";
+
+export async function postDepot(req, res, next) {
+  try {
+    res.status(201).json({ data: await createDepot(req.body) });
+  } catch (error) {
+    next(error);
+  }
+}
 
 export async function getDepots(_req, res, next) {
   try {

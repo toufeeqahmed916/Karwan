@@ -11,17 +11,27 @@ export function notFoundHandler(req, _res, next) {
 }
 
 export function errorHandler(error, _req, res, _next) {
-  const isOperational = error instanceof AppError && error.isOperational;
-  const statusCode = isOperational ? error.statusCode : 500;
-  const code = isOperational ? error.code : "SERVER_ERROR";
+  const isMalformedJson =
+    error instanceof SyntaxError && error.status === 400 && "body" in error;
+  const normalizedError = isMalformedJson
+    ? new AppError({
+        code: "VALIDATION_ERROR",
+        message: "Request body must contain valid JSON",
+        statusCode: 400,
+      })
+    : error;
+  const isOperational =
+    normalizedError instanceof AppError && normalizedError.isOperational;
+  const statusCode = isOperational ? normalizedError.statusCode : 500;
+  const code = isOperational ? normalizedError.code : "SERVER_ERROR";
   const message = isOperational
-    ? error.message
+    ? normalizedError.message
     : "An unexpected server error occurred";
 
   if (!isOperational) {
     console.error(error);
-  } else if (error.cause) {
-    console.error(`[${code}]`, error.cause);
+  } else if (normalizedError.cause) {
+    console.error(`[${code}]`, normalizedError.cause);
   }
 
   const response = {
@@ -31,8 +41,8 @@ export function errorHandler(error, _req, res, _next) {
     },
   };
 
-  if (isOperational && error.details !== undefined) {
-    response.error.details = error.details;
+  if (isOperational && normalizedError.details !== undefined) {
+    response.error.details = normalizedError.details;
   }
 
   res.status(statusCode).json(response);

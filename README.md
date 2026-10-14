@@ -7,7 +7,7 @@
 <!-- REPLACE the two links below with your real URLs -->
 <a href="https://karwan-front.vercel.app/"><img alt="Live demo" src="https://img.shields.io/badge/%E2%96%B6%20Live%20demo-C4F135?style=for-the-badge&labelColor=16181D&color=C4F135&logoColor=16181D"></a>
 &nbsp;
-<a href="https://YOUR-VIDEO-LINK"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6%20Demo%20video-16181D?style=for-the-badge&labelColor=16181D&color=16181D"></a>
+<a href="https://drive.google.com/file/d/16wBSfLdvNsXsoPN1FEJ6VLbRNtVhozs7/view"><img alt="Demo video" src="https://img.shields.io/badge/%E2%96%B6%20Demo%20video-16181D?style=for-the-badge&labelColor=16181D&color=16181D"></a>
 
 [PRD](docs/PRD.md)  |  [TRD](docs/TRD.md)  |  [User flow](docs/USER_FLOW.md)  |  [Design](docs/DESIGN.md)
 
